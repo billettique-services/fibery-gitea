@@ -59,3 +59,21 @@ pnpm start      # build and run the server (default port 3511)
 1. Start the server: `pnpm start`
 2. Expose it: `ngrok http 3511`
 3. In Fibery, add a **Custom Integration** using the ngrok URL.
+
+## Docker
+
+A multi-stage Alpine image is provided (build → production-only runtime, runs as
+the non-root `node` user, ~280 MB).
+
+```bash
+# Build and run with compose
+docker compose up -d --build
+
+# Or with plain docker
+docker build -t gitea-fibery-connector .
+docker run -d -p 3511:3511 gitea-fibery-connector
+```
+
+The container exposes the connector on port `3511` (override with the `PORT` env
+var — compose reads it too). A `HEALTHCHECK` polls `/status`. Then expose the port
+publicly (e.g. `ngrok http 3511`) and register the URL in Fibery.

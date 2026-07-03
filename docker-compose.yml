@@ -1,0 +1,12 @@
+services:
+  gitea-connector:
+    build: .
+    image: gitea-fibery-connector
+    container_name: gitea-fibery-connector
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3511}:${PORT:-3511}"
+    environment:
+      PORT: "${PORT:-3511}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      NODE_ENV: production
