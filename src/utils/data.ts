@@ -12,6 +12,14 @@ export const parseRepoFullName = (fullName: string): {owner: string; repo: strin
 /** Stable Fibery key for an issue/pull request: "owner/repo#number". */
 export const issueKey = (repoFullName: string, number: number): string => `${repoFullName}#${number}`;
 
+/**
+ * Maps a list of entities to their string ids, tolerating a null/undefined list
+ * and null entries inside it. Gitea can return null elements in arrays such as
+ * `requested_reviewers` (e.g. when a reviewer's account was removed).
+ */
+export const idsOf = (items?: Array<{id: number | string} | null | undefined>): string[] =>
+  (items ?? []).filter((item): item is {id: number | string} => item != null).map((item) => String(item.id));
+
 /** Extract the trailing numeric index from an issue/pull request API url. */
 export const parseIndexFromUrl = (url?: string): number | undefined => {
   if (!url) {

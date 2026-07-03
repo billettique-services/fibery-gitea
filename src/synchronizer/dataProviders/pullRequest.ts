@@ -1,7 +1,7 @@
 import {config} from "../../config.js";
 import {GetDataFn, PaginationConfig} from "../../types/types.synchronizerData.js";
 import {createGiteaApi, GiteaPullRequest} from "../../api/gitea.js";
-import {issueKey} from "../../utils/data.js";
+import {idsOf, issueKey} from "../../utils/data.js";
 import {paginateRepoScoped, RepoContext} from "./helpers.js";
 
 export const transformPullRequest = (pr: GiteaPullRequest, repoFullName: string) => ({
@@ -25,9 +25,9 @@ export const transformPullRequest = (pr: GiteaPullRequest, repoFullName: string)
   closed_at: pr.closed_at ?? undefined,
   repository_id: repoFullName,
   author_id: pr.user ? String(pr.user.id) : undefined,
-  assignee_ids: (pr.assignees ?? []).map((a) => String(a.id)),
-  reviewer_ids: (pr.requested_reviewers ?? []).map((r) => String(r.id)),
-  label_ids: (pr.labels ?? []).map((l) => String(l.id)),
+  assignee_ids: idsOf(pr.assignees),
+  reviewer_ids: idsOf(pr.requested_reviewers),
+  label_ids: idsOf(pr.labels),
   milestone_id: pr.milestone ? String(pr.milestone.id) : undefined,
 });
 

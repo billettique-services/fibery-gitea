@@ -143,7 +143,9 @@ describe(`POST /api/v1/synchronizer/data`, () => {
           base: {ref: "main"},
           head: {ref: "feature"},
           user: {id: 10},
-          requested_reviewers: [{id: 20}, {id: 21}],
+          // Gitea may include a null entry (e.g. removed reviewer account)
+          requested_reviewers: [{id: 20}, null, {id: 21}],
+          assignees: [{id: 30}, null],
         });
 
       const res = await restClient.getSyncData({
@@ -162,6 +164,7 @@ describe(`POST /api/v1/synchronizer/data`, () => {
           head_branch: "feature",
           repository_id: "octo/repo1",
           reviewer_ids: ["20", "21"],
+          assignee_ids: ["30"],
         }),
       ]);
     });

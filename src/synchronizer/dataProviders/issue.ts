@@ -1,7 +1,7 @@
 import {config} from "../../config.js";
 import {GetDataFn, PaginationConfig} from "../../types/types.synchronizerData.js";
 import {createGiteaApi, GiteaIssue} from "../../api/gitea.js";
-import {issueKey} from "../../utils/data.js";
+import {idsOf, issueKey} from "../../utils/data.js";
 import {paginateRepoScoped, RepoContext} from "./helpers.js";
 
 export const transformIssue = (issue: GiteaIssue, repoFullName: string) => ({
@@ -19,8 +19,8 @@ export const transformIssue = (issue: GiteaIssue, repoFullName: string) => ({
   closed_at: issue.closed_at ?? undefined,
   repository_id: repoFullName,
   author_id: issue.user ? String(issue.user.id) : undefined,
-  assignee_ids: (issue.assignees ?? []).map((a) => String(a.id)),
-  label_ids: (issue.labels ?? []).map((l) => String(l.id)),
+  assignee_ids: idsOf(issue.assignees),
+  label_ids: idsOf(issue.labels),
   milestone_id: issue.milestone ? String(issue.milestone.id) : undefined,
 });
 
