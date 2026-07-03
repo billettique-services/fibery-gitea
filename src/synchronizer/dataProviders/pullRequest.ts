@@ -26,6 +26,7 @@ export const transformPullRequest = (pr: GiteaPullRequest, repoFullName: string)
   repository_id: repoFullName,
   author_id: pr.user ? String(pr.user.id) : undefined,
   assignee_ids: (pr.assignees ?? []).map((a) => String(a.id)),
+  reviewer_ids: (pr.requested_reviewers ?? []).map((r) => String(r.id)),
   label_ids: (pr.labels ?? []).map((l) => String(l.id)),
   milestone_id: pr.milestone ? String(pr.milestone.id) : undefined,
 });

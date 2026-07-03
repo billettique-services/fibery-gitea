@@ -143,6 +143,7 @@ describe(`POST /api/v1/synchronizer/data`, () => {
           base: {ref: "main"},
           head: {ref: "feature"},
           user: {id: 10},
+          requested_reviewers: [{id: 20}, {id: 21}],
         });
 
       const res = await restClient.getSyncData({
@@ -160,6 +161,7 @@ describe(`POST /api/v1/synchronizer/data`, () => {
           base_branch: "main",
           head_branch: "feature",
           repository_id: "octo/repo1",
+          reviewer_ids: ["20", "21"],
         }),
       ]);
     });

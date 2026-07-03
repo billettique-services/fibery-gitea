@@ -110,6 +110,7 @@ export type GiteaPullRequest = {
   labels?: GiteaLabel[];
   assignee?: GiteaUser;
   assignees?: GiteaUser[];
+  requested_reviewers?: GiteaUser[];
   milestone?: GiteaMilestone;
   comments?: number;
   merged?: boolean;
