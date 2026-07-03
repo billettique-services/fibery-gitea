@@ -5,7 +5,7 @@ dotenv.config();
 
 export const env = cleanEnv(process.env, {
   PORT: num({
-    default: 3510, // your-connector: change to available port if needed
+    default: 3511, // Gitea connector port
     desc: "Port number to run app",
   }),
   LOG_LEVEL: str({

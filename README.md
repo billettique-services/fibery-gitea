@@ -1,30 +1,61 @@
-# Fibery Connector Template
+# Gitea Connector for Fibery
 
-A template for building custom Fibery integrations using AI coding agents. This enables continuous **one-way sync** of data from external apps into Fibery.
+A Fibery custom integration that performs one-way sync of data from a [Gitea](https://gitea.com)
+instance (self-hosted or cloud) into Fibery.
 
-## Why Use This?
+## What it syncs
 
-Fibery integrations replicate part of an external app's domain model, creating Databases in Fibery from external data. While dozens of integrations are already available as built-in templates in Fibery, you may need a custom integration for a service not yet supported.
+The connector creates the following Databases in Fibery:
 
-This template, combined with AI coding agents, dramatically speeds up the development of custom integrations.
+| Database       | Notes                                                                 |
+| -------------- | --------------------------------------------------------------------- |
+| Repository     | Selected repositories (metadata, stars/forks/watchers, owner)         |
+| Issue          | Real issues only (pull requests are excluded), with delta sync        |
+| Pull Request   | Listed via the issues endpoint, enriched with merge/branch metadata   |
+| Milestone      | Per-repository milestones                                             |
+| Label          | Per-repository labels                                                 |
+| User           | Repository collaborators (upserted by id across repositories)         |
+| Comment        | Issue & pull-request comments (off by default), with delta sync       |
 
-## Prerequisites
+Relations wired up between the databases:
 
-- Node.js ^25.2.1
-- pnpm 10.24.0
-- An AI coding agent (e.g., Claude Code with Opus 4.5)
-- ngrok (for local testing)
+- Repository → Issues, Pull Requests, Milestones, Labels, Owned Repositories (User)
+- Issue / Pull Request → Repository, Author (User), Assignees (User), Labels, Milestone
+- Comment → Author (User), Issue, Pull Request
+
+## Authentication
+
+Token authentication is used. Provide:
+
+- **Gitea URL** — base URL of your instance, e.g. `https://gitea.com` or `https://git.mycompany.io`
+- **Access Token** — a personal access token (Settings → Applications) with at least
+  `read:repository`, `read:issue`, and `read:user` scopes.
+
+## Filters
+
+- **Repositories** (required) — a multi-select populated from the repositories your token can access
+  (`GET /user/repos`). Data for every repository-scoped type is fetched only for the selected repositories.
+
+## Delta sync
+
+Issues, pull requests, and comments are synchronized incrementally using Gitea's `since` (RFC 3339)
+parameter. Repositories, milestones, labels, and users are re-fetched in full (these endpoints do not
+support `since` and are low volume). Because Gitea's `/pulls` endpoint has no `since` filter, pull
+requests are delta-synced through the issues endpoint with `type=pulls`, then enriched via
+`/pulls/{index}`.
+
+## Development
+
+```bash
+pnpm install    # dependencies (this repo pins node-linker=hoisted in .npmrc)
+pnpm build      # compile TypeScript
+pnpm lint       # ESLint
+pnpm test       # vitest (nock-based, no network)
+pnpm start      # build and run the server (default port 3511)
+```
 
 ## Local Testing
 
-1. Start your integration server:
-   ```bash
-   pnpm start
-   ```
-
-2. Expose it via ngrok:
-   ```bash
-   ngrok http <your-port>
-   ```
-
-3. In your Fibery workspace, go to integrations and add a **Custom Integration** using the ngrok URL.
+1. Start the server: `pnpm start`
+2. Expose it: `ngrok http 3511`
+3. In Fibery, add a **Custom Integration** using the ngrok URL.

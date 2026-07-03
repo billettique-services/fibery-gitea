@@ -23,9 +23,25 @@ export type SynchronizerConfig = {
 };
 
 export enum SynchronizerType {
-  // your-connector: populate sync types here
+  Repository = "repository",
+  User = "user",
+  Issue = "issue",
+  PullRequest = "pullrequest",
+  Milestone = "milestone",
+  Label = "label",
+  Comment = "comment",
 }
 
+/** Types whose data is fetched per selected repository (i.e. driven by the repositories filter) */
+export const repoScopedTypes: SynchronizerType[] = [
+  SynchronizerType.Repository,
+  SynchronizerType.Issue,
+  SynchronizerType.PullRequest,
+  SynchronizerType.Milestone,
+  SynchronizerType.Label,
+  SynchronizerType.Comment,
+];
+
 export enum SynchronizerFilter {
-  // your-connector: populate sync filters here
+  Repositories = "repositories",
 }

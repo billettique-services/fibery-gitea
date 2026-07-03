@@ -21,8 +21,12 @@ export type GetDataFn<T, P = unknown> = (p: {
   pagination?: P;
 }) => Promise<SynchronizerData<T, P>>;
 
+/**
+ * Pagination is driven by the list of selected repositories. `repos` holds the
+ * repositories that still have to be processed (the first element is the one
+ * currently being read); `page` is the 1-based page inside that repository.
+ */
 export type PaginationConfig = {
-  cursor?: string;
+  repos?: Array<string>;
+  page?: number;
 };
-
-// your-connector: define synchronized types

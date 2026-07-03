@@ -6,6 +6,7 @@ import {getSynchronizerConfig} from "../synchronizer/configProvider.js";
 import {DatalistRequestBody, GetDataRequestBody, GetSynchronizerSchemaRequestBody} from "../types/types.requests.js";
 import {getSchema} from "../synchronizer/schemaProvider.js";
 import {getData} from "../synchronizer/dataProvider.js";
+import {getDatalist} from "../synchronizer/datalistProvider.js";
 import {SynchronizerData} from "../types/types.synchronizerData.js";
 
 export const createSynchronizerRoutes = () => {
@@ -44,8 +45,7 @@ export const createSynchronizerRoutes = () => {
         throw new ValidationError(`"field" is missing`);
       }
 
-      // your-connector: implement datalist endopint here
-      throw new ValidationError("datalist is not implemented");
+      _res.json(await getDatalist(field, account));
     }),
   );
 

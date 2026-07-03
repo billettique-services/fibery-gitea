@@ -1,5 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?><!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
-<svg width="800px" height="800px" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="120" height="120" fill="#EFF1F3"/>
-<path fill-rule="evenodd" clip-rule="evenodd" d="M33.2503 38.4816C33.2603 37.0472 34.4199 35.8864 35.8543 35.875H83.1463C84.5848 35.875 85.7503 37.0431 85.7503 38.4816V80.5184C85.7403 81.9528 84.5807 83.1136 83.1463 83.125H35.8543C34.4158 83.1236 33.2503 81.957 33.2503 80.5184V38.4816ZM80.5006 41.1251H38.5006V77.8751L62.8921 53.4783C63.9172 52.4536 65.5788 52.4536 66.6039 53.4783L80.5006 67.4013V41.1251ZM43.75 51.6249C43.75 54.5244 46.1005 56.8749 49 56.8749C51.8995 56.8749 54.25 54.5244 54.25 51.6249C54.25 48.7254 51.8995 46.3749 49 46.3749C46.1005 46.3749 43.75 48.7254 43.75 51.6249Z" fill="#687787"/>
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="120" rx="16" fill="#609926"/>
+  <g transform="translate(28 26)" fill="#ffffff">
+    <path d="M52 8h-9V0h-8v8H17C10 8 5 13 5 20c0 8 5 15 13 17 3 8 9 13 17 14v6h-9v6h26v-6h-9v-6c8-1 14-6 17-14 8-2 13-9 13-17 0-7-5-12-12-12h-2zM12 20c0-3 2-5 5-5v18c-3-2-5-7-5-13zm51 0c0 6-2 11-5 13V15c3 0 5 2 5 5z"/>
+    <circle cx="30" cy="30" r="4" fill="#609926"/>
+    <circle cx="46" cy="42" r="4" fill="#609926"/>
+    <circle cx="46" cy="30" r="4" fill="#609926"/>
+    <circle cx="30" cy="42" r="4" fill="#609926"/>
+  </g>
 </svg>

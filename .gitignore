@@ -85,3 +85,4 @@ build
 /storage/
 tests-result
 .vercel
+.pnpm-store
