@@ -127,6 +127,31 @@ export type GiteaPullRequest = {
   closed_at?: string;
 };
 
+/**
+ * A single review row from `/pulls/{index}/reviews`. Gitea returns the full
+ * history (one row per review event), not one row per reviewer, so callers must
+ * dedupe to the latest row per user themselves.
+ *
+ * `state` values: APPROVED, PENDING, COMMENT, REQUEST_CHANGES, REQUEST_REVIEW.
+ * Only REQUEST_REVIEW represents a still-pending review request. Team review
+ * requests come back with `user` null and a `team` set — we ignore those here.
+ */
+export type GiteaPullReviewState =
+  | "APPROVED"
+  | "PENDING"
+  | "COMMENT"
+  | "REQUEST_CHANGES"
+  | "REQUEST_REVIEW"
+  | "";
+
+export type GiteaPullReview = {
+  id: number;
+  user?: GiteaUser | null;
+  state?: GiteaPullReviewState;
+  dismissed?: boolean;
+  submitted_at?: string;
+};
+
 export type GiteaComment = {
   id: number;
   html_url?: string;
@@ -259,6 +284,25 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     return data;
   };
 
+  // Full review history for a PR. Paginates to completion because we need every
+  // reviewer's latest state to tell pending requests apart from completed reviews.
+  const getPullReviews = async (owner: string, repo: string, index: number): Promise<GiteaPullReview[]> => {
+    const all: GiteaPullReview[] = [];
+    let page = 1;
+    for (;;) {
+      const {list, hasNext} = await listRequest<GiteaPullReview>(`/repos/${owner}/${repo}/pulls/${index}/reviews`, {
+        page,
+        limit: config.pageSize,
+      });
+      all.push(...list);
+      if (!hasNext || list.length === 0) {
+        break;
+      }
+      page += 1;
+    }
+    return all;
+  };
+
   const getMilestones = ({owner, repo, page, limit: pageSize}: {owner: string; repo: string; page: number; limit: number}) =>
     listRequest<GiteaMilestone>(`/repos/${owner}/${repo}/milestones`, {page, limit: pageSize, state: "all"});
 
@@ -312,6 +356,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     getRepository,
     getIssues,
     getPullRequest,
+    getPullReviews,
     getMilestones,
     getLabels,
     getComments,

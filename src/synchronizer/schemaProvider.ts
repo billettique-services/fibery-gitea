@@ -235,6 +235,17 @@ const schema: SynchronizerSchema = {
         targetFieldId: "id",
       },
     },
+    reviewed_by_ids: {
+      name: "Reviewed By Ids",
+      type: "array[text]",
+      relation: {
+        cardinality: "many-to-many",
+        name: "Reviewers",
+        targetName: "Reviewed Pull Requests",
+        targetType: SynchronizerType.User,
+        targetFieldId: "id",
+      },
+    },
     label_ids: {
       name: "Label Ids",
       type: "array[text]",

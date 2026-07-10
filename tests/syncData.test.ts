@@ -143,10 +143,23 @@ describe(`POST /api/v1/synchronizer/data`, () => {
           base: {ref: "main"},
           head: {ref: "feature"},
           user: {id: 10},
-          // Gitea may include a null entry (e.g. removed reviewer account)
-          requested_reviewers: [{id: 20}, null, {id: 21}],
           assignees: [{id: 30}, null],
         });
+
+      // Reviewers come from the review history, not `requested_reviewers`:
+      // user 20 has a pending request (reviewer_ids), user 21 was requested then
+      // approved so counts as an actual reviewer (reviewed_by_ids), user 22 left a
+      // comment review, and a team review request has no `user` and is ignored.
+      gitea()
+        .get(`/api/v1/repos/octo/repo1/pulls/12/reviews`)
+        .query({page: 1, limit: 50})
+        .reply(200, [
+          {id: 1, user: {id: 21}, state: "REQUEST_REVIEW"},
+          {id: 2, user: {id: 21}, state: "APPROVED"},
+          {id: 3, user: {id: 20}, state: "REQUEST_REVIEW"},
+          {id: 4, user: null, state: "REQUEST_REVIEW"},
+          {id: 5, user: {id: 22}, state: "COMMENT"},
+        ]);
 
       const res = await restClient.getSyncData({
         account,
@@ -163,7 +176,8 @@ describe(`POST /api/v1/synchronizer/data`, () => {
           base_branch: "main",
           head_branch: "feature",
           repository_id: "octo/repo1",
-          reviewer_ids: ["20", "21"],
+          reviewer_ids: ["20"],
+          reviewed_by_ids: ["21", "22"],
           assignee_ids: ["30"],
         }),
       ]);
