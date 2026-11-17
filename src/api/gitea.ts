@@ -2,6 +2,7 @@ import pLimit from "p-limit";
 import {AppError} from "../errors/errors.js";
 import {config} from "../config.js";
 import {IntegrationAccount} from "../types/types.authentication.js";
+import {validateBaseUrl} from "../utils/data.js";
 
 const limit = pLimit(config.maxConcurrentConnections);
 
@@ -198,7 +199,11 @@ export const normalizeBaseUrl = (baseUrl: string) => {
 /** True when a `Link` header advertises a next page, e.g. `<…?page=2>; rel="next", <…?page=9>; rel="last"`. */
 const hasNextLink = (link: string): boolean => /;\s*rel="?next"?\s*(,|$)/i.test(link);
 
+/** API path prefix for a repository; both segments are percent-encoded so they cannot alter the path. */
+const repoPath = (owner: string, repo: string) => `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+
 export const createGiteaApi = (account: IntegrationAccount) => {
+  validateBaseUrl(account?.baseUrl);
   const apiRoot = `${normalizeBaseUrl(account.baseUrl)}/api/v1`;
 
   const request = async <T>(
@@ -226,6 +231,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
           },
           body: init.body === undefined ? undefined : JSON.stringify(init.body),
           signal: AbortSignal.timeout(timeoutMs),
+          redirect: config.allowedGiteaHosts.length > 0 ? "error" : "follow",
         });
       } catch (e) {
         if (isTimeoutError(e)) {
@@ -311,7 +317,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     listRequest<GiteaRepository>(`/user/repos`, {page, limit: pageSize});
 
   const getRepository = async (owner: string, repo: string): Promise<GiteaRepository> => {
-    const {data} = await request<GiteaRepository>(`/repos/${owner}/${repo}`);
+    const {data} = await request<GiteaRepository>(repoPath(owner, repo));
     return data;
   };
 
@@ -330,7 +336,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     type: "issues" | "pulls";
     since?: string;
   }) =>
-    listRequest<GiteaIssue>(`/repos/${owner}/${repo}/issues`, {
+    listRequest<GiteaIssue>(`${repoPath(owner, repo)}/issues`, {
       page,
       limit: pageSize,
       type,
@@ -339,7 +345,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     });
 
   const getPullRequest = async (owner: string, repo: string, index: number): Promise<GiteaPullRequest> => {
-    const {data} = await request<GiteaPullRequest>(`/repos/${owner}/${repo}/pulls/${index}`);
+    const {data} = await request<GiteaPullRequest>(`${repoPath(owner, repo)}/pulls/${index}`);
     return data;
   };
 
@@ -349,7 +355,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     const all: GiteaPullReview[] = [];
     let page = 1;
     for (;;) {
-      const {list, hasNext} = await listRequest<GiteaPullReview>(`/repos/${owner}/${repo}/pulls/${index}/reviews`, {
+      const {list, hasNext} = await listRequest<GiteaPullReview>(`${repoPath(owner, repo)}/pulls/${index}/reviews`, {
         page,
         limit: config.pageSize,
       });
@@ -367,7 +373,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
   const getCommitStatus = async (owner: string, repo: string, sha: string): Promise<GiteaCombinedStatus | null> => {
     try {
       const {data} = await request<GiteaCombinedStatus>(
-        `/repos/${owner}/${repo}/commits/${encodeURIComponent(sha)}/status`,
+        `${repoPath(owner, repo)}/commits/${encodeURIComponent(sha)}/status`,
       );
       return data;
     } catch (e) {
@@ -383,7 +389,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
   const findOpenPullRequestsBySha = async (owner: string, repo: string, sha: string): Promise<GiteaPullRequest[]> => {
     const matches: GiteaPullRequest[] = [];
     for (let page = 1; page <= MAX_OPEN_PR_PAGES; page += 1) {
-      const {list, hasNext} = await listRequest<GiteaPullRequest>(`/repos/${owner}/${repo}/pulls`, {
+      const {list, hasNext} = await listRequest<GiteaPullRequest>(`${repoPath(owner, repo)}/pulls`, {
         page,
         limit: config.pageSize,
         state: "open",
@@ -406,7 +412,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     fromRef?: string,
   ): Promise<GiteaBranch> => {
     const {data} = await request<GiteaBranch>(
-      `/repos/${owner}/${repo}/branches`,
+      `${repoPath(owner, repo)}/branches`,
       {},
       {
         method: "POST",
@@ -429,7 +435,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     repo: string;
     page: number;
     limit: number;
-  }) => listRequest<GiteaMilestone>(`/repos/${owner}/${repo}/milestones`, {page, limit: pageSize, state: "all"});
+  }) => listRequest<GiteaMilestone>(`${repoPath(owner, repo)}/milestones`, {page, limit: pageSize, state: "all"});
 
   const getLabels = ({
     owner,
@@ -441,7 +447,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     repo: string;
     page: number;
     limit: number;
-  }) => listRequest<GiteaLabel>(`/repos/${owner}/${repo}/labels`, {page, limit: pageSize});
+  }) => listRequest<GiteaLabel>(`${repoPath(owner, repo)}/labels`, {page, limit: pageSize});
 
   const getComments = ({
     owner,
@@ -455,7 +461,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     page: number;
     limit: number;
     since?: string;
-  }) => listRequest<GiteaComment>(`/repos/${owner}/${repo}/issues/comments`, {page, limit: pageSize, since});
+  }) => listRequest<GiteaComment>(`${repoPath(owner, repo)}/issues/comments`, {page, limit: pageSize, since});
 
   const getCollaborators = ({
     owner,
@@ -467,13 +473,13 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     repo: string;
     page: number;
     limit: number;
-  }) => listRequest<GiteaUser>(`/repos/${owner}/${repo}/collaborators`, {page, limit: pageSize});
+  }) => listRequest<GiteaUser>(`${repoPath(owner, repo)}/collaborators`, {page, limit: pageSize});
 
   // Users assignable to issues/PRs in the repo — includes org members with write
   // access, which `collaborators` (direct-only) misses for team-based orgs.
   const getAssignees = async ({owner, repo}: {owner: string; repo: string}): Promise<GiteaUser[]> => {
     try {
-      const {data} = await request<GiteaUser[]>(`/repos/${owner}/${repo}/assignees`);
+      const {data} = await request<GiteaUser[]>(`${repoPath(owner, repo)}/assignees`);
       return Array.isArray(data) ? data : [];
     } catch (e) {
       // Some repositories (e.g. with issues disabled) return 404 here; treat as no assignees.
