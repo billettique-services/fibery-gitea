@@ -14,13 +14,14 @@ The connector creates the following Databases in Fibery:
 | Pull Request   | Merge/branch metadata, size, review state, CI status                  |
 | Milestone      | Per-repository milestones                                             |
 | Label          | Per-repository labels                                                 |
-| User           | Repository collaborators (upserted by id across repositories)         |
+| User           | Repository collaborators and assignable users (includes org members with write access); upserted by id across repositories |
 | Comment        | Issue & pull-request comments (off by default), with delta sync       |
 
 Relations wired up between the databases:
 
 - Repository → Issues, Pull Requests, Milestones, Labels, Owned Repositories (User)
 - Issue / Pull Request → Repository, Author (User), Assignees (User), Labels, Milestone
+- Pull Request additionally → Requested Reviewers, Reviewers, Approved By and Changes Requested By (User)
 - Comment → Author (User), Issue, Pull Request
 
 ## Authentication
@@ -36,6 +37,24 @@ Token authentication is used. Provide:
 
 - **Repositories** (required) — a multi-select populated from the repositories your token can access
   (`GET /user/repos`). Data for every repository-scoped type is fetched only for the selected repositories.
+
+## Configuration
+
+The connector is configured through environment variables. Copy [`.env.example`](.env.example) to `.env`
+to see every variable with its default: `docker compose` reads a `.env` file next to `docker-compose.yml`,
+and `pnpm start` reads it via dotenv.
+
+| Variable                     | Default       | Description                                                                                                                                  |
+| ---------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                       | `3511`        | Port the connector listens on.                                                                                                               |
+| `LOG_LEVEL`                  | `debug`       | One of `debug`, `info`, `warn`, `error`, `none`. docker compose and `.env.example` use `info`.                                               |
+| `NODE_ENV`                   | `development` | One of `development`, `test`, `production`. `pnpm start` uses this value; docker compose always sets `production`.                           |
+| `WEBHOOK_SECRET`             | empty         | Shared secret for Gitea webhooks, sent as `Bearer <secret>` in the webhook's Authorization Header. Empty accepts deliveries unauthenticated. |
+| `PAGE_SIZE`                  | `50`          | Items requested per Gitea API page (Gitea caps this server-side, default cap 50).                                                            |
+| `MAX_CONCURRENT_CONNECTIONS` | `10`          | Maximum parallel requests to Gitea.                                                                                                          |
+| `WAIT_BEFORE_SERVER_CLOSE`   | `0`           | Seconds to wait before closing the server on SIGTERM.                                                                                        |
+| `REQUEST_TIMEOUT_MS`         | `30000`       | Abort a Gitea request after this many milliseconds.                                                                                          |
+| `ALLOWED_GITEA_HOSTS`        | empty         | Comma-separated Gitea hosts (host or host:port) this connector may call. Empty allows any host.                                              |
 
 ## Delta sync
 
@@ -73,6 +92,8 @@ The synchronizer config enables Fibery webhooks (`webhooks: {enabled: true, type
 3. Optional but recommended: set `WEBHOOK_SECRET` on the connector and put the same value in the
    webhook's **Authorization Header** field (`Bearer <secret>`). Without it every delivery is accepted;
    this is low risk because the payload is never stored, only used to decide what to re-read from Gitea.
+   With Docker Compose, put `WEBHOOK_SECRET=<secret>` in `.env`; in production the connector logs a warning at
+   startup when it is unset.
 
 Events are matched to the sync by the host of the repository URL, so the *Gitea URL* in the integration
 account must have the same host as Gitea's `ROOT_URL`. Events for repositories that are not selected in the
@@ -114,8 +135,10 @@ docker compose up -d --build
 
 # Or with plain docker
 docker build -t gitea-fibery-connector .
-docker run -d -p 3511:3511 gitea-fibery-connector
+docker run -d -p 3511:3511 -e WEBHOOK_SECRET=<secret> gitea-fibery-connector
 ```
+
+Settings are read from environment variables; see [Configuration](#configuration).
 
 The container exposes the connector on port `3511` (override with the `PORT` env
 var — compose reads it too). A `HEALTHCHECK` polls `/status`. Then expose the port
