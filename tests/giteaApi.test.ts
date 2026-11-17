@@ -1,8 +1,11 @@
 import nock from "nock";
-import {describe, expect, it} from "vitest";
+import {afterAll, afterEach, beforeAll, describe, expect, it} from "vitest";
 import {createGiteaApi, normalizeBaseUrl} from "../src/api/gitea.js";
+import {config} from "../src/config.js";
 import {AppError} from "../src/errors/errors.js";
 import {createTestAccount, TEST_BASE_URL} from "./mocks/testAccount.js";
+import {getRestClient} from "./restClient.js";
+import {createTestApp} from "./testApp.js";
 
 const gitea = () => nock(TEST_BASE_URL);
 const api = createGiteaApi(createTestAccount());
@@ -203,5 +206,143 @@ describe(`pagination (hasNext)`, () => {
     await expect(api.findOpenPullRequestsBySha("octo", "repo1", "target")).resolves.toEqual([]);
     // matches MAX_OPEN_PR_PAGES in src/api/gitea.ts
     expect(calls).toBe(20);
+  });
+});
+
+describe(`Link header pagination`, () => {
+  const issuesUrl = `https://gitea.test/api/v1/repos/octo/repo1/issues`;
+
+  it.each([
+    [
+      "server capped limit below the page size (short page, next link)",
+      25,
+      {
+        link: `<${issuesUrl}?page=2&limit=50>; rel="next", <${issuesUrl}?page=4&limit=50>; rel="last"`,
+        "x-total-count": "100",
+      },
+      true,
+    ],
+    [
+      "last page (only first/prev links) despite a big total",
+      25,
+      {
+        link: `<${issuesUrl}?page=1&limit=50>; rel="first", <${issuesUrl}?page=3&limit=50>; rel="prev"`,
+        "x-total-count": "1000",
+      },
+      false,
+    ],
+    [
+      "rel next listed last",
+      5,
+      {link: `<https://gitea.test/x?page=1>; rel="prev", <https://gitea.test/x?page=3>; rel="next"`},
+      true,
+    ],
+    ["next link but empty page (loop guard)", 0, {link: `<https://gitea.test/x?page=2>; rel="next"`}, false],
+  ])(`%s`, async (_name, count, headers, expected) => {
+    gitea().get(issuesPath).query(true).reply(200, items(count), headers);
+
+    const result = await listIssues(1);
+
+    expect(result.hasNext).toBe(expected);
+    expect(result.list).toHaveLength(count);
+  });
+});
+
+describe(`timeouts`, () => {
+  const original = config.requestTimeoutMs;
+
+  afterEach(() => {
+    config.requestTimeoutMs = original;
+  });
+
+  it(`maps a Gitea that never answers to a retryable 504`, async () => {
+    config.requestTimeoutMs = 50;
+    gitea().get(`/api/v1/repos/octo/repo1`).delay(500).reply(200, {id: 1});
+
+    const error = await api.getRepository("octo", "repo1").then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(AppError);
+    expect(error).toMatchObject({statusCode: 504, tryLater: true});
+    expect((error as AppError).message).toContain("50ms");
+  });
+
+  it(`maps a Gitea that stalls while sending the body to a retryable 504`, async () => {
+    config.requestTimeoutMs = 50;
+    gitea().get(`/api/v1/repos/octo/repo1`).delayBody(500).reply(200, {id: 1});
+
+    const error = await api.getRepository("octo", "repo1").then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(AppError);
+    expect(error).toMatchObject({statusCode: 504, tryLater: true});
+    expect((error as AppError).message).toContain("50ms");
+  });
+});
+
+describe(`non-JSON and non-Gitea responses`, () => {
+  let app: ReturnType<typeof createTestApp>;
+  let restClient: ReturnType<typeof getRestClient>;
+
+  beforeAll(async () => {
+    app = createTestApp();
+    restClient = getRestClient(app.url);
+  });
+
+  afterAll(async () => app.destroy());
+
+  it(`maps an HTML 200 to a non-retryable 502 mentioning JSON`, async () => {
+    gitea().get(`/api/v1/repos/octo/repo1`).reply(200, "<html>login</html>", {"content-type": "text/html"});
+
+    const error = await api.getRepository("octo", "repo1").then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(AppError);
+    expect(error).toMatchObject({statusCode: 502, tryLater: false});
+    expect((error as AppError).message).toContain("JSON");
+  });
+
+  it(`maps an empty 200 body to a non-retryable 502 mentioning JSON`, async () => {
+    gitea().get(`/api/v1/repos/octo/repo1`).reply(200, "");
+
+    const error = await api.getRepository("octo", "repo1").then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(AppError);
+    expect(error).toMatchObject({statusCode: 502, tryLater: false});
+    expect((error as AppError).message).toContain("JSON");
+  });
+
+  it.each([
+    ["an empty object", {}],
+    ["an array", []],
+    ["an object without login", {id: 1}],
+  ])(`validate rejects %s as not a Gitea user`, async (_name, body) => {
+    gitea().get(`/api/v1/user`).reply(200, body);
+
+    await expect(api.validate()).rejects.toMatchObject({statusCode: 502, tryLater: false});
+  });
+
+  it(`validate accepts a user with a login`, async () => {
+    gitea().get(`/api/v1/user`).reply(200, {id: 1, login: "octocat"});
+
+    await expect(api.validate()).resolves.toEqual({id: 1, login: "octocat"});
+  });
+
+  it(`POST /validate reports a non-JSON 200 as a 502 mentioning JSON`, async () => {
+    gitea().get(`/api/v1/user`).reply(200, "<html>login</html>", {"content-type": "text/html"});
+
+    const res = await restClient.validate(createTestAccount());
+
+    expect(res.statusCode).toEqual(502);
+    expect((res.body as {message: string}).message).toContain("JSON");
   });
 });
