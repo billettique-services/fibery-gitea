@@ -7,6 +7,7 @@ import {fileURLToPath} from "url";
 import {getConnectorConfig} from "./connectorConfig.js";
 import {errorHandlingMiddleware} from "./errors/errorMiddleware.js";
 import {createValidateRouter} from "./routes/validation.js";
+import {createAutomationRoutes} from "./routes/automationRoutes.js";
 import {createSynchronizerRoutes} from "./routes/synchronizerRoutes.js";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -33,6 +34,8 @@ export const createApp = () => {
   app.use("/validate", createValidateRouter());
 
   app.use("/api/v1/synchronizer", createSynchronizerRoutes());
+
+  app.use("/api/v1/automations", createAutomationRoutes());
 
   app.use((req, res: Response<{message: string}>) => {
     res.status(404).json({

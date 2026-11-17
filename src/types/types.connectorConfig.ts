@@ -26,6 +26,22 @@ type ConnectorConfigAuthentication = {
 
 type Source = Record<string, unknown>;
 
+type ConnectorConfigActionArg = {
+  id: string;
+  name: string;
+  description?: string;
+  type: "text" | "textarea";
+  textTemplateSupported?: boolean;
+  optional?: boolean;
+};
+
+export type ConnectorConfigAction = {
+  action: string;
+  name: string;
+  description?: string;
+  args: Array<ConnectorConfigActionArg>;
+};
+
 export type ConnectorConfig = {
   id: string;
   name: string;
@@ -34,10 +50,12 @@ export type ConnectorConfig = {
   description: string;
   authentication: Array<ConnectorConfigAuthentication>;
   sources: Array<Source>;
+  actions?: Array<ConnectorConfigAction>;
   responsibleFor: {
     userAuthentication: boolean;
     dataProviding: boolean;
     dataSynchronization: boolean;
     dataImport: boolean;
+    automations?: boolean;
   };
 };

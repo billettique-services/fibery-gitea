@@ -140,6 +140,11 @@ export type GiteaCombinedStatus = {
   sha?: string;
 };
 
+export type GiteaBranch = {
+  name: string;
+  commit?: {id?: string};
+};
+
 /**
  * A single review row from `/pulls/{index}/reviews`. Gitea returns the full
  * history (one row per review event), not one row per reviewer, so callers must
@@ -188,6 +193,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
   const request = async <T>(
     path: string,
     searchParams: Record<string, string | number | undefined> = {},
+    init: {method?: "GET" | "POST"; body?: unknown} = {},
   ): Promise<{data: T; totalCount?: number}> => {
     const url = new URL(`${apiRoot}${path}`);
     for (const [key, value] of Object.entries(searchParams)) {
@@ -200,10 +206,13 @@ export const createGiteaApi = (account: IntegrationAccount) => {
       let response: Response;
       try {
         response = await fetch(url, {
+          method: init.method ?? "GET",
           headers: {
             Authorization: `token ${account.apiKey}`,
             Accept: "application/json",
+            ...(init.body === undefined ? {} : {"Content-Type": "application/json"}),
           },
+          body: init.body === undefined ? undefined : JSON.stringify(init.body),
         });
       } catch (e) {
         throw new AppError({
@@ -326,6 +335,29 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     }
   };
 
+  // Creates `newBranch` from `fromRef` (branch, tag or sha), or from the default
+  // branch when no ref is given. `old_branch_name` is the pre-1.22 spelling of
+  // `old_ref_name`; both are sent so the call works on older instances too.
+  const createBranch = async (
+    owner: string,
+    repo: string,
+    newBranch: string,
+    fromRef?: string,
+  ): Promise<GiteaBranch> => {
+    const {data} = await request<GiteaBranch>(
+      `/repos/${owner}/${repo}/branches`,
+      {},
+      {
+        method: "POST",
+        body: {
+          new_branch_name: newBranch,
+          ...(fromRef ? {old_ref_name: fromRef, old_branch_name: fromRef} : {}),
+        },
+      },
+    );
+    return data;
+  };
+
   const getMilestones = ({
     owner,
     repo,
@@ -399,6 +431,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     getPullRequest,
     getPullReviews,
     getCommitStatus,
+    createBranch,
     getMilestones,
     getLabels,
     getComments,

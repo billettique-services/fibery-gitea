@@ -32,3 +32,11 @@ export type DatalistRequestBody = {
   field?: string;
   dependsOn?: Record<string, unknown>;
 };
+
+export type ExecuteActionRequestBody = {
+  action?: {
+    action?: string;
+    args?: Record<string, unknown>;
+  };
+  account?: IntegrationAccount;
+};
