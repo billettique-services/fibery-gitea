@@ -33,14 +33,14 @@ describe(`POST /api/v1/synchronizer/data`, () => {
 
       expect(res1.statusCode).toEqual(200);
       expect(res1.body.items).toEqual([
-        expect.objectContaining({id: "octo/repo1", name: "octo/repo1", stars_count: 5, owner_id: "10"}),
+        expect.objectContaining({id: "octo/repo1", name: "octo/repo1", owner_id: "10"}),
       ]);
+      // fields dropped from the schema must not be sent
+      expect(res1.body.items[0]).not.toHaveProperty("stars_count");
       expect(res1.body.pagination).toEqual({hasNext: true, nextPageConfig: {repos: ["octo/repo2"], page: 1}});
       expect(res1.body.synchronizationType).toEqual("full");
 
-      gitea()
-        .get(`/api/v1/repos/octo/repo2`)
-        .reply(200, {id: 2, name: "repo2", full_name: "octo/repo2"});
+      gitea().get(`/api/v1/repos/octo/repo2`).reply(200, {id: 2, name: "repo2", full_name: "octo/repo2"});
 
       const res2 = await restClient.getSyncData({
         account,
@@ -141,10 +141,16 @@ describe(`POST /api/v1/synchronizer/data`, () => {
           state: "closed",
           merged: true,
           base: {ref: "main"},
-          head: {ref: "feature"},
+          // head branch already deleted: ref is synthetic, label keeps the branch name
+          head: {ref: "refs/pull/12/head", label: "feature", sha: "abc123"},
+          additions: 10,
+          deletions: 4,
+          changed_files: 3,
           user: {id: 10},
           assignees: [{id: 30}, null],
         });
+
+      gitea().get(`/api/v1/repos/octo/repo1/commits/abc123/status`).reply(200, {state: "success", total_count: 2});
 
       // Reviewers come from the review history, not `requested_reviewers`:
       // user 20 has a pending request (reviewer_ids), user 21 was requested then
@@ -178,9 +184,94 @@ describe(`POST /api/v1/synchronizer/data`, () => {
           repository_id: "octo/repo1",
           reviewer_ids: ["20"],
           reviewed_by_ids: ["21", "22"],
+          approved_by_ids: ["21"],
+          changes_requested_by_ids: [],
+          review_state: "Approved",
+          ci_status: "Success",
+          additions: 10,
+          deletions: 4,
+          changed_files: 3,
           assignee_ids: ["30"],
         }),
       ]);
+      expect(res.body.items[0]).not.toHaveProperty("due_date");
+    });
+
+    const mockSinglePr = (pr: object, reviews: object[], status?: {code: number; body?: object}) => {
+      gitea()
+        .get(`/api/v1/repos/octo/repo1/issues`)
+        .query({page: 1, limit: 50, type: "pulls", state: "all"})
+        .reply(200, [{id: 300, number: 20, title: "PR", pull_request: {}}]);
+      gitea()
+        .get(`/api/v1/repos/octo/repo1/pulls/20`)
+        .reply(200, {id: 300, number: 20, title: "PR", state: "open", ...pr});
+      gitea().get(`/api/v1/repos/octo/repo1/pulls/20/reviews`).query({page: 1, limit: 50}).reply(200, reviews);
+      if (status) {
+        gitea()
+          .get(`/api/v1/repos/octo/repo1/commits/sha20/status`)
+          .reply(status.code, status.body ?? {});
+      }
+    };
+    const syncPr = async () => {
+      const res = await restClient.getSyncData({
+        account,
+        requestedType: SynchronizerType.PullRequest,
+        filter: {repositories: ["octo/repo1"]},
+      });
+      expect(res.statusCode).toEqual(200);
+      return res.body.items[0] as Record<string, unknown>;
+    };
+
+    it(`reads the head branch from head.label, stripping the fork owner prefix`, async () => {
+      mockSinglePr({head: {ref: "refs/pull/20/head", label: "forkuser:fix/thing"}}, []);
+      expect((await syncPr()).head_branch).toEqual("fix/thing");
+    });
+
+    it(`falls back to head.ref when there is no label, but never exposes refs/pull/*`, async () => {
+      mockSinglePr({head: {ref: "feature"}}, []);
+      expect((await syncPr()).head_branch).toEqual("feature");
+      nock.cleanAll();
+      mockSinglePr({head: {ref: "refs/pull/20/head"}}, []);
+      expect((await syncPr()).head_branch).toBeUndefined();
+    });
+
+    it(`derives review state: change requests win, comments do not erase approvals, dismissed ones are ignored`, async () => {
+      mockSinglePr({}, [
+        {id: 1, user: {id: 1}, state: "APPROVED"},
+        {id: 2, user: {id: 1}, state: "COMMENT"},
+        {id: 3, user: {id: 2}, state: "APPROVED"},
+        {id: 4, user: {id: 2}, state: "REQUEST_CHANGES"},
+        {id: 5, user: {id: 3}, state: "REQUEST_CHANGES", dismissed: true},
+      ]);
+      expect(await syncPr()).toMatchObject({
+        review_state: "Changes requested",
+        approved_by_ids: ["1"],
+        changes_requested_by_ids: ["2"],
+      });
+    });
+
+    it(`reports review state Pending when nobody has decided`, async () => {
+      mockSinglePr({}, [{id: 1, user: {id: 1}, state: "COMMENT"}]);
+      expect(await syncPr()).toMatchObject({
+        review_state: "Pending",
+        approved_by_ids: [],
+        changes_requested_by_ids: [],
+      });
+    });
+
+    it.each([
+      ["failure", 1, "Failure"],
+      ["error", 1, "Failure"],
+      ["pending", 1, "Pending"],
+      ["pending", 0, "None"],
+    ])(`maps combined commit status %s (count %i) to %s`, async (state, total_count, expected) => {
+      mockSinglePr({head: {ref: "x", label: "x", sha: "sha20"}}, [], {code: 200, body: {state, total_count}});
+      expect((await syncPr()).ci_status).toEqual(expected);
+    });
+
+    it(`treats an unknown commit (404 on status) as no CI status`, async () => {
+      mockSinglePr({head: {ref: "x", label: "x", sha: "sha20"}}, [], {code: 404, body: {message: "not found"}});
+      expect((await syncPr()).ci_status).toEqual("None");
     });
   });
 
@@ -217,10 +308,7 @@ describe(`POST /api/v1/synchronizer/data`, () => {
 
   describe(`users`, () => {
     it(`merges collaborators and assignees for org repositories`, async () => {
-      gitea()
-        .get(`/api/v1/repos/octo/repo1/collaborators`)
-        .query({page: 1, limit: 50})
-        .reply(200, []); // org repo: no direct collaborators
+      gitea().get(`/api/v1/repos/octo/repo1/collaborators`).query({page: 1, limit: 50}).reply(200, []); // org repo: no direct collaborators
 
       gitea()
         .get(`/api/v1/repos/octo/repo1/assignees`)

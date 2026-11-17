@@ -121,10 +121,23 @@ export type GiteaPullRequest = {
   base?: GiteaBranchInfo;
   head?: GiteaBranchInfo;
   diff_url?: string;
-  due_date?: string;
+  additions?: number;
+  deletions?: number;
+  changed_files?: number;
   created_at?: string;
   updated_at?: string;
   closed_at?: string;
+};
+
+/**
+ * Combined commit status (`/commits/{sha}/status`). `state` is the aggregate of
+ * every CI context; `total_count` is 0 when no CI reported on the commit (state
+ * is then "pending" even though nothing is running).
+ */
+export type GiteaCombinedStatus = {
+  state?: "success" | "pending" | "failure" | "error" | "warning" | "";
+  total_count?: number;
+  sha?: string;
 };
 
 /**
@@ -136,13 +149,7 @@ export type GiteaPullRequest = {
  * Only REQUEST_REVIEW represents a still-pending review request. Team review
  * requests come back with `user` null and a `team` set — we ignore those here.
  */
-export type GiteaPullReviewState =
-  | "APPROVED"
-  | "PENDING"
-  | "COMMENT"
-  | "REQUEST_CHANGES"
-  | "REQUEST_REVIEW"
-  | "";
+export type GiteaPullReviewState = "APPROVED" | "PENDING" | "COMMENT" | "REQUEST_CHANGES" | "REQUEST_REVIEW" | "";
 
 export type GiteaPullReview = {
   id: number;
@@ -303,11 +310,45 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     return all;
   };
 
-  const getMilestones = ({owner, repo, page, limit: pageSize}: {owner: string; repo: string; page: number; limit: number}) =>
-    listRequest<GiteaMilestone>(`/repos/${owner}/${repo}/milestones`, {page, limit: pageSize, state: "all"});
+  // Combined CI status of a commit. A 404 (unknown/garbage-collected sha) means
+  // there is no status to report rather than a failed sync.
+  const getCommitStatus = async (owner: string, repo: string, sha: string): Promise<GiteaCombinedStatus | null> => {
+    try {
+      const {data} = await request<GiteaCombinedStatus>(
+        `/repos/${owner}/${repo}/commits/${encodeURIComponent(sha)}/status`,
+      );
+      return data;
+    } catch (e) {
+      if (e instanceof AppError && e.statusCode === 404) {
+        return null;
+      }
+      throw e;
+    }
+  };
 
-  const getLabels = ({owner, repo, page, limit: pageSize}: {owner: string; repo: string; page: number; limit: number}) =>
-    listRequest<GiteaLabel>(`/repos/${owner}/${repo}/labels`, {page, limit: pageSize});
+  const getMilestones = ({
+    owner,
+    repo,
+    page,
+    limit: pageSize,
+  }: {
+    owner: string;
+    repo: string;
+    page: number;
+    limit: number;
+  }) => listRequest<GiteaMilestone>(`/repos/${owner}/${repo}/milestones`, {page, limit: pageSize, state: "all"});
+
+  const getLabels = ({
+    owner,
+    repo,
+    page,
+    limit: pageSize,
+  }: {
+    owner: string;
+    repo: string;
+    page: number;
+    limit: number;
+  }) => listRequest<GiteaLabel>(`/repos/${owner}/${repo}/labels`, {page, limit: pageSize});
 
   const getComments = ({
     owner,
@@ -357,6 +398,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     getIssues,
     getPullRequest,
     getPullReviews,
+    getCommitStatus,
     getMilestones,
     getLabels,
     getComments,
