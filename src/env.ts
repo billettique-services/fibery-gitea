@@ -19,6 +19,10 @@ export const env = cleanEnv(process.env, {
   WAIT_BEFORE_SERVER_CLOSE: num({default: 0}),
   PAGE_SIZE: num({default: 50}),
   MAX_CONCURRENT_CONNECTIONS: num({default: 10}),
+  REQUEST_TIMEOUT_MS: num({
+    default: 30000,
+    desc: "Abort a Gitea API request that has not completed after this many milliseconds",
+  }),
   API_VERSION: num({default: 1}),
   WEBHOOK_SECRET: str({
     default: "",

@@ -9,6 +9,7 @@ export const config = {
   nodeEnv: env["NODE_ENV"],
   pageSize: env["PAGE_SIZE"],
   maxConcurrentConnections: env["MAX_CONCURRENT_CONNECTIONS"],
+  requestTimeoutMs: env["REQUEST_TIMEOUT_MS"],
   apiVersion: env["API_VERSION"],
   webhookSecret: env["WEBHOOK_SECRET"],
 };
