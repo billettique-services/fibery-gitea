@@ -195,6 +195,9 @@ export const normalizeBaseUrl = (baseUrl: string) => {
   return withScheme.replace(/\/api\/v1$/i, "");
 };
 
+/** True when a `Link` header advertises a next page, e.g. `<…?page=2>; rel="next", <…?page=9>; rel="last"`. */
+const hasNextLink = (link: string): boolean => /;\s*rel="?next"?\s*(,|$)/i.test(link);
+
 export const createGiteaApi = (account: IntegrationAccount) => {
   const apiRoot = `${normalizeBaseUrl(account.baseUrl)}/api/v1`;
 
@@ -277,10 +280,17 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     path: string,
     {page, limit: pageSize, ...rest}: {page: number; limit: number; [key: string]: string | number | undefined},
   ): Promise<ListResult<T>> => {
-    const {data, totalCount} = await request<T[]>(path, {page, limit: pageSize, ...rest});
+    const {data, totalCount, link} = await request<T[]>(path, {page, limit: pageSize, ...rest});
     const list = Array.isArray(data) ? data : [];
-    const hasNext =
-      totalCount !== undefined && !Number.isNaN(totalCount) ? page * pageSize < totalCount : list.length === pageSize;
+    let hasNext: boolean;
+    if (link) {
+      // Authoritative: stays correct when the server caps `limit` below what we asked for.
+      hasNext = list.length > 0 && hasNextLink(link);
+    } else if (totalCount !== undefined && !Number.isNaN(totalCount)) {
+      hasNext = page * pageSize < totalCount;
+    } else {
+      hasNext = list.length === pageSize;
+    }
     return {list, hasNext};
   };
 
