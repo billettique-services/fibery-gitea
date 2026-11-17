@@ -10,6 +10,10 @@ export const config = {
   pageSize: env["PAGE_SIZE"],
   maxConcurrentConnections: env["MAX_CONCURRENT_CONNECTIONS"],
   requestTimeoutMs: env["REQUEST_TIMEOUT_MS"],
+  allowedGiteaHosts: env["ALLOWED_GITEA_HOSTS"]
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean),
   apiVersion: env["API_VERSION"],
   webhookSecret: env["WEBHOOK_SECRET"],
 };

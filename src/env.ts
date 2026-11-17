@@ -23,6 +23,10 @@ export const env = cleanEnv(process.env, {
     default: 30000,
     desc: "Abort a Gitea API request that has not completed after this many milliseconds",
   }),
+  ALLOWED_GITEA_HOSTS: str({
+    default: "",
+    desc: "Comma-separated Gitea hosts (host or host:port) this connector may call. Empty allows any host.",
+  }),
   API_VERSION: num({default: 1}),
   WEBHOOK_SECRET: str({
     default: "",
