@@ -286,6 +286,14 @@ export const createGiteaApi = (account: IntegrationAccount) => {
 
   const validate = async (): Promise<GiteaUser> => {
     const {data} = await request<GiteaUser>(`/user`);
+    if (!data || typeof data !== "object" || typeof data.login !== "string") {
+      throw new AppError({
+        statusCode: 502,
+        message:
+          "The URL answered, but not like a Gitea API (GET /api/v1/user did not return a user). Check the Gitea URL.",
+        tryLater: false,
+      });
+    }
     return data;
   };
 
