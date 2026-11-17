@@ -144,13 +144,23 @@ export const transformWebhook = async ({payload, types, filter, account}: Webhoo
     (data[type] ??= []).push({...row, __syncAction: "SET"} as Row);
   };
 
+  // Numbers end up in Gitea API paths, so anything that is not a positive integer is dropped.
   const pullNumbers = new Set<number>();
+  const addPull = (n: unknown) => {
+    if (typeof n === "number" && Number.isInteger(n) && n > 0) {
+      pullNumbers.add(n);
+    }
+  };
   if (event.pull_request?.number !== undefined) {
-    pullNumbers.add(event.pull_request.number);
+    addPull(event.pull_request.number);
   } else if (event.issue && (event.issue.pull_request || event.is_pull)) {
-    pullNumbers.add(event.issue.number);
+    addPull(event.issue.number);
   } else if (event.sha && !event.issue) {
-    for (const pr of await gitea.findOpenPullRequestsBySha(owner, repo, event.sha)) {
+    // A status event only carries a sha. Scanning open PRs costs several API calls,
+    // so skip it entirely when pull requests are not synchronized.
+    for (const pr of !wants(SynchronizerType.PullRequest)
+      ? []
+      : await gitea.findOpenPullRequestsBySha(owner, repo, event.sha)) {
       pullNumbers.add(pr.number);
     }
   } else if (event.issue) {

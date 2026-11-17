@@ -136,6 +136,16 @@ describe(`webhooks`, () => {
       expect(res.body.data.pullrequest[0]).toMatchObject({id: "octo/repo1#2"});
     });
 
+    it(`does not scan open pull requests for a status event when pull requests are not synchronized`, async () => {
+      const res = await transform({sha: "sha2", state: "success", repository}, [SynchronizerType.Issue]);
+      expect(res.body).toEqual({data: {}}); // nock would reject an unmocked list call
+    });
+
+    it(`drops pull request numbers that are not positive integers`, async () => {
+      const res = await transform({pull_request: {number: "../../admin/users"}, repository});
+      expect(res.body).toEqual({data: {}});
+    });
+
     it(`re-reads the pull request on a comment made on it and emits the comment`, async () => {
       mockPullRequest(5);
       const res = await transform(

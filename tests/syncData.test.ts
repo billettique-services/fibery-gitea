@@ -250,6 +250,18 @@ describe(`POST /api/v1/synchronizer/data`, () => {
       });
     });
 
+    it(`does not resurrect a superseded approval when the newer decision is dismissed`, async () => {
+      mockSinglePr({}, [
+        {id: 1, user: {id: 1}, state: "APPROVED"},
+        {id: 2, user: {id: 1}, state: "REQUEST_CHANGES", dismissed: true},
+      ]);
+      expect(await syncPr()).toMatchObject({
+        review_state: "Pending",
+        approved_by_ids: [],
+        changes_requested_by_ids: [],
+      });
+    });
+
     it(`reports review state Pending when nobody has decided`, async () => {
       mockSinglePr({}, [{id: 1, user: {id: 1}, state: "COMMENT"}]);
       expect(await syncPr()).toMatchObject({

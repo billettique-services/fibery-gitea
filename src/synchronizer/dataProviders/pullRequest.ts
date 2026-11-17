@@ -54,15 +54,19 @@ export const partitionReviewers = (reviews: GiteaPullReview[]): ReviewerPartitio
   const decisionByUser = new Map<number, GiteaPullReview>();
   for (const review of reviews) {
     const userId = review.user?.id;
-    if (userId == null || review.dismissed) {
-      continue;
-    }
-    if (review.state !== "APPROVED" && review.state !== "REQUEST_CHANGES") {
+    if (userId == null || (review.state !== "APPROVED" && review.state !== "REQUEST_CHANGES")) {
       continue;
     }
     const current = decisionByUser.get(userId);
     if (!current || review.id > current.id) {
       decisionByUser.set(userId, review);
+    }
+  }
+  // Dismissal is applied after picking the latest decision: dismissing a newer
+  // decision must not bring back an older one it superseded.
+  for (const [userId, review] of decisionByUser) {
+    if (review.dismissed) {
+      decisionByUser.delete(userId);
     }
   }
   const approved: string[] = [];
