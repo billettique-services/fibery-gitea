@@ -1,5 +1,4 @@
 import express, {Response} from "express";
-import bodyParser from "body-parser";
 import {getRequestLogMiddleware} from "./infra/logger.js";
 import {middleware as correlationIdMiddleware} from "./infra/correlationId.js";
 import path from "path";
@@ -14,10 +13,11 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 
 export const createApp = () => {
   const app = express();
+  app.disable("x-powered-by");
 
   app.use(correlationIdMiddleware);
   app.use(getRequestLogMiddleware());
-  app.use(bodyParser.json({limit: "10MB"}));
+  app.use(express.json({limit: "10MB"}));
 
   app.get("/", (req, res) => {
     res.json(getConnectorConfig());

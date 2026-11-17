@@ -3,6 +3,7 @@ import {config} from "../config.js";
 import {createGiteaApi, GiteaComment, GiteaIssue, GiteaRepository, normalizeBaseUrl} from "../api/gitea.js";
 import {logger} from "../infra/logger.js";
 import {ValidationError} from "../errors/errors.js";
+import {parseRepoFullName} from "../utils/data.js";
 import {IntegrationAccount} from "../types/types.authentication.js";
 import {
   SynchronizerDataFilter,
@@ -138,7 +139,7 @@ export const transformWebhook = async ({payload, types, filter, account}: Webhoo
     return {data};
   }
   const wants = (type: SynchronizerType) => !types || types.includes(type);
-  const [owner, repo] = repoFullName.split("/");
+  const {owner, repo} = parseRepoFullName(repoFullName);
   const gitea = createGiteaApi(account as IntegrationAccount);
   const add = (type: SynchronizerType, row: object) => {
     (data[type] ??= []).push({...row, __syncAction: "SET"} as Row);
