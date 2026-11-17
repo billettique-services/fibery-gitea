@@ -5,6 +5,11 @@ import {IntegrationAccount} from "../types/types.authentication.js";
 
 const limit = pLimit(config.maxConcurrentConnections);
 
+const isTimeoutError = (e: unknown): boolean => e instanceof Error && e.name === "TimeoutError";
+
+const timeoutError = (timeoutMs: number) =>
+  new AppError({statusCode: 504, message: `Gitea did not respond within ${timeoutMs}ms`, tryLater: true});
+
 /** Safety cap when scanning open pull requests (pages of `config.pageSize`). */
 const MAX_OPEN_PR_PAGES = 20;
 
@@ -197,7 +202,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     path: string,
     searchParams: Record<string, string | number | undefined> = {},
     init: {method?: "GET" | "POST"; body?: unknown} = {},
-  ): Promise<{data: T; totalCount?: number}> => {
+  ): Promise<{data: T; totalCount?: number; link?: string | null}> => {
     const url = new URL(`${apiRoot}${path}`);
     for (const [key, value] of Object.entries(searchParams)) {
       if (value !== undefined && value !== null && value !== "") {
@@ -206,6 +211,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     }
 
     return limit(async () => {
+      const timeoutMs = config.requestTimeoutMs;
       let response: Response;
       try {
         response = await fetch(url, {
@@ -216,8 +222,12 @@ export const createGiteaApi = (account: IntegrationAccount) => {
             ...(init.body === undefined ? {} : {"Content-Type": "application/json"}),
           },
           body: init.body === undefined ? undefined : JSON.stringify(init.body),
+          signal: AbortSignal.timeout(timeoutMs),
         });
       } catch (e) {
+        if (isTimeoutError(e)) {
+          throw timeoutError(timeoutMs);
+        }
         throw new AppError({
           statusCode: 502,
           message: `Unable to reach Gitea instance: ${(e as Error).message}`,
@@ -243,11 +253,23 @@ export const createGiteaApi = (account: IntegrationAccount) => {
       }
 
       const totalCountHeader = response.headers.get("x-total-count");
-      const data = (await response.json()) as T;
-      return {
-        data,
-        totalCount: totalCountHeader === null ? undefined : Number(totalCountHeader),
-      };
+      const link = response.headers.get("link");
+      let data: T;
+      try {
+        data = (await response.json()) as T;
+      } catch (e) {
+        if (isTimeoutError(e)) {
+          throw timeoutError(timeoutMs);
+        }
+        throw new AppError({
+          statusCode: 502,
+          message: `The Gitea URL did not return JSON (content-type: ${
+            response.headers.get("content-type") ?? "unknown"
+          }). Check that it points at a Gitea instance and not at a login page or proxy.`,
+          tryLater: false,
+        });
+      }
+      return {data, totalCount: totalCountHeader === null ? undefined : Number(totalCountHeader), link};
     });
   };
 
