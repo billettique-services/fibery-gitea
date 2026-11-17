@@ -91,6 +91,8 @@ longer need a Gitea token in clear text. Arguments: `repo` (`owner/repo`), `name
 pnpm install    # dependencies (this repo pins node-linker=hoisted in .npmrc)
 pnpm build      # compile TypeScript
 pnpm lint       # ESLint
+pnpm typecheck  # tsc over src and tests (no emit)
+pnpm verify     # lint + typecheck + tests: run before pushing
 pnpm test       # vitest (nock-based, no network)
 pnpm start      # build and run the server (default port 3511)
 ```
