@@ -10,3 +10,10 @@ services:
       PORT: "${PORT:-3511}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       NODE_ENV: production
+      # Keep the defaults below in sync with src/env.ts.
+      WEBHOOK_SECRET: "${WEBHOOK_SECRET:-}"
+      PAGE_SIZE: "${PAGE_SIZE:-50}"
+      MAX_CONCURRENT_CONNECTIONS: "${MAX_CONCURRENT_CONNECTIONS:-10}"
+      WAIT_BEFORE_SERVER_CLOSE: "${WAIT_BEFORE_SERVER_CLOSE:-0}"
+      REQUEST_TIMEOUT_MS: "${REQUEST_TIMEOUT_MS:-30000}"
+      ALLOWED_GITEA_HOSTS: "${ALLOWED_GITEA_HOSTS:-}"
