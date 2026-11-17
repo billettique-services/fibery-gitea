@@ -28,7 +28,7 @@ describe(`webhooks`, () => {
     return {
       statusCode: response.status,
       body: (await response.json()) as Record<string, unknown> & {
-        data?: Record<string, Array<Record<string, unknown>>>;
+        data: Record<string, Array<Record<string, unknown>>>;
         webhooks?: unknown;
         workspaceId?: string;
         id?: string;
