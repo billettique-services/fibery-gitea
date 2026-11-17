@@ -10,4 +10,5 @@ export const config = {
   pageSize: env["PAGE_SIZE"],
   maxConcurrentConnections: env["MAX_CONCURRENT_CONNECTIONS"],
   apiVersion: env["API_VERSION"],
+  webhookSecret: env["WEBHOOK_SECRET"],
 };

@@ -3,11 +3,19 @@ import {asyncWrap} from "../utils/asyncWrap.js";
 import {ValidationError} from "../errors/errors.js";
 import {SynchronizerSchema} from "../types/types.synchronizerSchema.js";
 import {getSynchronizerConfig} from "../synchronizer/configProvider.js";
-import {DatalistRequestBody, GetDataRequestBody, GetSynchronizerSchemaRequestBody} from "../types/types.requests.js";
+import {
+  DatalistRequestBody,
+  GetDataRequestBody,
+  GetSynchronizerSchemaRequestBody,
+  WebhookInstallRequestBody,
+  WebhookPreProcessRequestBody,
+  WebhookTransformRequestBody,
+} from "../types/types.requests.js";
 import {getSchema} from "../synchronizer/schemaProvider.js";
 import {getData} from "../synchronizer/dataProvider.js";
 import {getDatalist} from "../synchronizer/datalistProvider.js";
 import {SynchronizerData} from "../types/types.synchronizerData.js";
+import {installWebhook, preProcessWebhook, transformWebhook} from "../synchronizer/webhookProvider.js";
 
 export const createSynchronizerRoutes = () => {
   const router = express.Router();
@@ -71,6 +79,22 @@ export const createSynchronizerRoutes = () => {
           pagination,
         }),
       );
+    }),
+  );
+
+  router.post("/webhooks", (req: Request<unknown, unknown, WebhookInstallRequestBody>, res) => {
+    res.json(installWebhook(req.body));
+  });
+
+  router.post("/webhooks/pre-process", (req: Request<unknown, unknown, WebhookPreProcessRequestBody>, res) => {
+    const {statusCode, body} = preProcessWebhook(req.body);
+    res.status(statusCode).json(body);
+  });
+
+  router.post(
+    "/webhooks/transform",
+    asyncWrap(async (req: Request<unknown, unknown, WebhookTransformRequestBody>, res) => {
+      res.json(await transformWebhook(req.body));
     }),
   );
 

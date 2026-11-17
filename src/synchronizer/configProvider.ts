@@ -51,5 +51,6 @@ export const getSynchronizerConfig = (): SynchronizerConfig => {
       },
     ],
     version: config.apiVersion,
+    webhooks: {enabled: true, type: "ui"},
   };
 };

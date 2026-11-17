@@ -20,6 +20,7 @@ export type SynchronizerConfig = {
   types: Array<SynchronizerTypeMeta>;
   filters: Array<SynchronizerFilterMeta>;
   version: number;
+  webhooks?: {enabled: boolean; type: "ui"};
 };
 
 export enum SynchronizerType {

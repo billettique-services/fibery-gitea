@@ -5,6 +5,9 @@ import {IntegrationAccount} from "../types/types.authentication.js";
 
 const limit = pLimit(config.maxConcurrentConnections);
 
+/** Safety cap when scanning open pull requests (pages of `config.pageSize`). */
+const MAX_OPEN_PR_PAGES = 20;
+
 export type GiteaUser = {
   id: number;
   login: string;
@@ -180,7 +183,7 @@ type ListResult<T> = {
   hasNext: boolean;
 };
 
-const normalizeBaseUrl = (baseUrl: string) => {
+export const normalizeBaseUrl = (baseUrl: string) => {
   const trimmed = baseUrl.trim().replace(/\/+$/, "");
   const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   // Allow the user to pass a URL that already ends with /api/v1
@@ -335,6 +338,24 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     }
   };
 
+  // Open pull requests whose head commit is `sha`. A commit status event only
+  // carries the sha, so the PR has to be found by scanning the open ones.
+  const findOpenPullRequestsBySha = async (owner: string, repo: string, sha: string): Promise<GiteaPullRequest[]> => {
+    const matches: GiteaPullRequest[] = [];
+    for (let page = 1; page <= MAX_OPEN_PR_PAGES; page += 1) {
+      const {list, hasNext} = await listRequest<GiteaPullRequest>(`/repos/${owner}/${repo}/pulls`, {
+        page,
+        limit: config.pageSize,
+        state: "open",
+      });
+      matches.push(...list.filter((pr) => pr.head?.sha === sha));
+      if (!hasNext || list.length === 0) {
+        break;
+      }
+    }
+    return matches;
+  };
+
   // Creates `newBranch` from `fromRef` (branch, tag or sha), or from the default
   // branch when no ref is given. `old_branch_name` is the pre-1.22 spelling of
   // `old_ref_name`; both are sent so the call works on older instances too.
@@ -432,6 +453,7 @@ export const createGiteaApi = (account: IntegrationAccount) => {
     getPullReviews,
     getCommitStatus,
     createBranch,
+    findOpenPullRequestsBySha,
     getMilestones,
     getLabels,
     getComments,

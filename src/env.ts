@@ -20,4 +20,8 @@ export const env = cleanEnv(process.env, {
   PAGE_SIZE: num({default: 50}),
   MAX_CONCURRENT_CONNECTIONS: num({default: 10}),
   API_VERSION: num({default: 1}),
+  WEBHOOK_SECRET: str({
+    default: "",
+    desc: "Shared secret Gitea sends in the webhook Authorization header (or signs the body with). Empty disables verification.",
+  }),
 });

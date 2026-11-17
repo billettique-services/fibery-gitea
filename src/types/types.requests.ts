@@ -40,3 +40,27 @@ export type ExecuteActionRequestBody = {
   };
   account?: IntegrationAccount;
 };
+
+export type WebhookInstallRequestBody = {
+  types?: Array<SynchronizerType>;
+  filter?: Partial<SynchronizerDataFilter>;
+  account?: IntegrationAccount;
+  /** `null` on first install, otherwise whatever the previous install returned. */
+  webhook?: {id?: string; workspaceId?: string} | null;
+};
+
+/** The third-party request as forwarded by Fibery; key names vary, so both spellings are accepted. */
+export type WebhookPreProcessRequestBody = {
+  headers?: Record<string, unknown>;
+  params?: Record<string, unknown>;
+  body?: unknown;
+  payload?: unknown;
+};
+
+export type WebhookTransformRequestBody = {
+  params?: Record<string, unknown>;
+  payload?: unknown;
+  types?: Array<SynchronizerType>;
+  filter?: Partial<SynchronizerDataFilter>;
+  account?: IntegrationAccount;
+};
