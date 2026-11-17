@@ -1,0 +1,17 @@
+# Normalize all text files to LF in the repository and in working trees.
+# Matches Prettier's default (endOfLine: "lf") and keeps shell scripts such as
+# .husky/pre-commit runnable on Linux/macOS/Docker.
+* text=auto eol=lf
+
+# Windows-only scripts need CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never touch binary assets.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
