@@ -51,4 +51,4 @@ module.exports = defineConfig([{
         "@typescript-eslint/no-explicit-any": "error",
         "@typescript-eslint/no-empty-object-type": "off",
     },
-}, globalIgnores(["public/**/*", "**/node_modules", "**/prod_node_modules", "build/**/*", "**/examples", "eslint.config.cjs"])]);
+}, globalIgnores(["public/**/*", "**/node_modules", "**/prod_node_modules", "build/**/*", "eslint.config.cjs"])]);

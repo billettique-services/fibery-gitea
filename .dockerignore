@@ -4,7 +4,6 @@ build
 .gitignore
 .husky
 tests
-examples
 *.log
 .env
 .DS_Store
