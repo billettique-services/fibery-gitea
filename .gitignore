@@ -86,3 +86,5 @@ build
 tests-result
 .vercel
 .pnpm-store
+# Local improvement plans
+/plans/
